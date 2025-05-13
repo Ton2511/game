@@ -19,6 +19,9 @@ public class GameController : MonoBehaviour
         IDLE, ANIMATE, CHOOSE
     }
 
+    private bool isSkipping = false;
+
+
     void Start()
     {
         if (currentScene is StoryScene)
@@ -33,21 +36,24 @@ public class GameController : MonoBehaviour
 
     void Update()
     {
-        if (state == State.IDLE) {
-            if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
+        if (state == State.IDLE)
+        {
+            // ตรวจจับการกด Ctrl ค้าง
+            isSkipping = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
+            if (isSkipping)
             {
                 if (bottomBar.IsCompleted())
                 {
-                    bottomBar.StopTyping();
                     if (bottomBar.IsLastSentence())
                     {
                         PlayScene((currentScene as StoryScene).nextScene);
                     }
                     else
                     {
+                        bottomBar.StopTyping(); // <<< เพิ่ม
                         bottomBar.PlayNextSentence();
-                        PlayAudio((currentScene as StoryScene)
-                            .sentences[bottomBar.GetSentenceIndex()]);
+                        PlayAudio((currentScene as StoryScene).sentences[bottomBar.GetSentenceIndex()]);
                     }
                 }
                 else
@@ -55,27 +61,56 @@ public class GameController : MonoBehaviour
                     bottomBar.SpeedUp();
                 }
             }
-            if (Input.GetMouseButtonDown(1))
+
+            else
             {
-                if (bottomBar.IsFirstSentence())
+                // Space หรือคลิกซ้ายเพื่อเลื่อนข้อความปกติ
+                if (Input.GetKeyDown(KeyCode.Space) || Input.GetMouseButtonDown(0))
                 {
-                    if(history.Count > 1)
+                    if (bottomBar.IsCompleted())
                     {
                         bottomBar.StopTyping();
-                        bottomBar.HideSprites();
-                        history.RemoveAt(history.Count - 1);
-                        StoryScene scene = history[history.Count - 1];
-                        history.RemoveAt(history.Count - 1);
-                        PlayScene(scene, scene.sentences.Count - 2, false);
+                        if (bottomBar.IsLastSentence())
+                        {
+                            PlayScene((currentScene as StoryScene).nextScene);
+                        }
+                        else
+                        {
+                            bottomBar.PlayNextSentence();
+                            PlayAudio((currentScene as StoryScene)
+                                .sentences[bottomBar.GetSentenceIndex()]);
+                        }
+                    }
+                    else
+                    {
+                        bottomBar.SpeedUp();
                     }
                 }
-                else
+
+                // คลิกขวาเพื่อย้อนข้อความ
+                if (Input.GetMouseButtonDown(1))
                 {
-                    bottomBar.GoBack();
+                    if (bottomBar.IsFirstSentence())
+                    {
+                        if (history.Count > 1)
+                        {
+                            bottomBar.StopTyping();
+                            bottomBar.HideSprites();
+                            history.RemoveAt(history.Count - 1);
+                            StoryScene scene = history[history.Count - 1];
+                            history.RemoveAt(history.Count - 1);
+                            PlayScene(scene, scene.sentences.Count - 2, false);
+                        }
+                    }
+                    else
+                    {
+                        bottomBar.GoBack();
+                    }
                 }
             }
         }
     }
+
 
     public void PlayScene(GameScene scene, int sentenceIndex = -1, bool isAnimated = true)
     {
@@ -119,8 +154,18 @@ public class GameController : MonoBehaviour
         }
     }
 
-    private void PlayAudio(StoryScene.Sentence sentence)
+    public void PlayAudio(StoryScene.Sentence sentence)
     {
         audioController.PlayAudio(sentence.music, sentence.sound);
     }
+    public bool HasHistory()
+{
+    return history.Count > 1;
+}
+
+public StoryScene PopPreviousScene()
+{
+    history.RemoveAt(history.Count - 1);
+    return history[history.Count - 1];
+}
 }

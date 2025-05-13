@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 public class BottomBarController : MonoBehaviour
 {
@@ -20,6 +21,10 @@ public class BottomBarController : MonoBehaviour
     private Coroutine typingCoroutine;
     private float speedFactor = 1f;
 
+        public Button skipButton;
+    public Button backButton;
+    public GameController gameController;
+
     private enum State
     {
         PLAYING, SPEEDED_UP, COMPLETED
@@ -29,6 +34,8 @@ public class BottomBarController : MonoBehaviour
     {
         sprites = new Dictionary<Speaker, SpriteController>();
         animator = GetComponent<Animator>();
+        skipButton.onClick.AddListener(OnSkipClicked);
+        backButton.onClick.AddListener(OnBackClicked);
     }
 
     public int GetSentenceIndex()
@@ -96,14 +103,66 @@ public class BottomBarController : MonoBehaviour
     public void SpeedUp()
     {
         state = State.SPEEDED_UP;
-        speedFactor = 0.25f;
+        speedFactor = 0.75f;
     }
 
     public void StopTyping()
+{
+    state = State.COMPLETED;
+
+    if (typingCoroutine != null)
     {
-        state = State.COMPLETED;
         StopCoroutine(typingCoroutine);
+        typingCoroutine = null;
     }
+
+    // แสดงข้อความทั้งหมดทันที (ไม่ให้ตัวอักษรหายหรือค้าง)
+    if (sentenceIndex >= 0 && sentenceIndex < currentScene.sentences.Count)
+    {
+        barText.text = currentScene.sentences[sentenceIndex].text;
+    }
+}
+private void OnSkipClicked()
+{
+    if (IsCompleted())
+    {
+        if (IsLastSentence())
+        {
+            gameController.PlayScene(currentScene.nextScene);
+        }
+        else
+        {
+            PlayNextSentence();
+            gameController.PlayAudio(currentScene.sentences[sentenceIndex]);
+        }
+    }
+    else
+    {
+        SpeedUp();
+    }
+}
+
+
+private void OnBackClicked()
+{
+    if (IsFirstSentence())
+    {
+        gameController.bottomBar.StopTyping();
+        gameController.bottomBar.HideSprites();
+
+        if (gameController.HasHistory())
+        {
+            StoryScene previous = gameController.PopPreviousScene();
+            gameController.PlayScene(previous, previous.sentences.Count - 2, false);
+        }
+    }
+    else
+    {
+        GoBack();
+    }
+}
+
+
 
     public void HideSprites()
     {
@@ -123,23 +182,31 @@ public class BottomBarController : MonoBehaviour
         ActSpeakers(isAnimated);
     }
 
-    private IEnumerator TypeText(string text)
-    {
-        barText.text = "";
-        state = State.PLAYING;
-        int wordIndex = 0;
+private IEnumerator TypeText(string text)
+{
+    barText.text = "";
+    state = State.PLAYING;
+    int wordIndex = 0;
 
-        while (state != State.COMPLETED)
+    while (state != State.COMPLETED)
+    {
+        if (wordIndex < text.Length)
         {
             barText.text += text[wordIndex];
-            yield return new WaitForSeconds(speedFactor * 0.05f);
-            if(++wordIndex == text.Length)
-            {
-                state = State.COMPLETED;
-                break;
-            }
+            wordIndex++;
         }
+
+        if (wordIndex == text.Length)
+        {
+            state = State.COMPLETED;
+            break;
+        }
+
+        yield return new WaitForSeconds(speedFactor * 0.08f);
+
     }
+}
+
 
     private void ActSpeakers(bool isAnimated = true)
     {

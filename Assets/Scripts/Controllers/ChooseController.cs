@@ -10,6 +10,8 @@ public class ChooseController : MonoBehaviour
     private RectTransform rectTransform;
     private Animator animator;
     private float labelHeight = -1;
+    private bool isChoosing = false;
+
 
     void Start()
     {
@@ -19,6 +21,7 @@ public class ChooseController : MonoBehaviour
 
     public void SetupChoose(ChooseScene scene)
     {
+        isChoosing = false;
         DestroyLabels();
         animator.SetTrigger("Show");
         for(int index = 0; index < scene.labels.Count; index++)
@@ -40,6 +43,8 @@ public class ChooseController : MonoBehaviour
 
     public void PerformChoose(StoryScene scene)
     {
+        if (isChoosing) return; 
+        isChoosing = true;      
         gameController.PlayScene(scene);
         animator.SetTrigger("Hide");
     }
